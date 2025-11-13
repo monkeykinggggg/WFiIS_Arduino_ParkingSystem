@@ -84,7 +84,7 @@ int squidgame_durations[] = {
   1
 };
 
-int melody[] = {
+int tokyo_drift_melody[] = {
   NOTE_AS4, REST, NOTE_AS4, REST, NOTE_AS4, REST, NOTE_AS4, REST,
   NOTE_AS4, NOTE_B4, NOTE_DS5,
   NOTE_AS4, REST, NOTE_AS4, REST,
@@ -105,7 +105,7 @@ int melody[] = {
   REST
 };
 
-int durations[] = {
+int tokyo_drift_durations[] = {
   4, 4, 4, 4, 4, 4, 4, 4,
   3, 3, 4,
   4, 4, 4, 4,
@@ -125,6 +125,9 @@ int durations[] = {
   4, 4, 4, 4,
   1
 };
+
+int* melody = mario_melody;
+int* durations = mario_durations;
 
 
 long readUltrasonic(int trigPin, int echoPin) {

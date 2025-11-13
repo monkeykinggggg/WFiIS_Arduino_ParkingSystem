@@ -138,7 +138,7 @@ def update_gui():
     ax_car.set_ylim(-160, 160)
     ax_car.set_aspect("equal")
     ax_car.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-    ax_car.set_title("Car Sensors Derection", fontsize=8)
+    ax_car.set_title("Car Sensors Detection", fontsize=8)
 
     car = plt.Rectangle((-30, -60), 60, 120, fill=True, color="gray", alpha=0.4)
     ax_car.add_patch(car)
@@ -176,9 +176,9 @@ frame = tk.Frame(window)
 frame.pack(side=tk.TOP, fill=tk.BOTH, padx=20, pady=10)
 
 tk.Label(frame, text="Collision Sound:").grid(row=0, column=0)
-dflt_sound = tk.StringVar(value="MARIO")
+dflt_sound = tk.StringVar(value="MARIO")            #automatically updates when the OptionMenu selection changes
 option_sound_list = ["MARIO", "GAMEOVER", "PACMAN", "SQUIDGAME", "TOKYO_DRIFT"]
-tk.OptionMenu(frame, dflt_sound, "MARIO", *option_sound_list).grid(row=0, column=1, pady = 5)
+tk.OptionMenu(frame, dflt_sound, *option_sound_list).grid(row=0, column=1, pady = 5)
 
 tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady = 5)
 tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady = 5)
