@@ -1,32 +1,33 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import messagebox
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.dates as mdates
+
 from collections import deque
 from datetime import datetime
-import pandas as pd
-import matplotlib.dates as mdates
+from pandas import Timedelta
 import time
-import csv
 import random
 import sys
 import threading
-import numpy as np
-
+import serial
 
 ser = None
-
-import serial
-SERIAL_PORT = "/dev/cu.usbmodem11101"  # COM05
+SERIAL_PORT = "/dev/cu.usbmodem11101"  # COM5
 BAUD_RATE = 9600
+
 try:
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
     time.sleep(2)
 except Exception as e:
-    print("Nie udało się otworzyć portu szeregowego:", e)   # random data will be used
+    print("Nie udało się otworzyć portu szeregowego:", e)  
     ser = None
 
 LOG_FILE = "parking_log.csv"
+
+with open(LOG_FILE, "w", newline="") as f:
+    f.write("timestamp, rear_left, rear_center, rear_right, collision\n")
 
 running = False
 reading_thread = None
@@ -35,20 +36,16 @@ data_points = deque()
 window_seconds = 30
 last_collision = 0
 
-with open(LOG_FILE, "w", newline="") as f:
-    writer = csv.writer(f)
-    writer.writerow(["timestamp", "rear_left", "rear_center", "rear_right", "collision"])
-
 
 def reader_thread_func():
-    global running, data_points, last_collision
+    global running, data_points, last_collision, ser
     while running:
         try:
             if ser:
                 raw = ser.readline().decode("utf-8").strip()
             else:
-                rear_center = random.randint(80, 100)
                 rear_left = random.randint(30, 45)
+                rear_center = random.randint(80, 100)
                 rear_right = random.randint(0, 30)
                 collision = 0 
                 raw = f"{rear_center},{rear_left},{rear_right},{collision}"
@@ -73,8 +70,7 @@ def reader_thread_func():
                 last_collision = collision
                 
                 with open(LOG_FILE, "a", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow([f'{timestamp.strftime("%H:%M:%S"):6}', f'{rear_left:10}', f'{rear_center:10}', f'{rear_right:10}', f'{collision:10}'])
+                    f.write(f'{timestamp.strftime("%H:%M:%S"):6}, {rear_left:10}, {rear_center:10}, {rear_right:10}, {collision:10}\n')
 
         except Exception as e:
             print("Błąd w wątku czytającym:", e, file=sys.stderr)
@@ -128,7 +124,7 @@ def update_gui():
     ax_plot.plot(times, centers, label="Rear Center", linewidth=1)
     ax_plot.plot(times, rights, label="Rear Right", linewidth=1)
     ax_plot.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
-    ax_plot.set_xlim(datetime.now() - pd.Timedelta(seconds=window_seconds), datetime.now())
+    ax_plot.set_xlim(datetime.now() - Timedelta(seconds=window_seconds), datetime.now())
     ax_plot.tick_params(axis='x', labelsize=5, rotation=60)
     ax_plot.tick_params(axis='y', labelsize=8)
     ax_plot.set_ylim(0, 60)
@@ -182,7 +178,7 @@ frame.pack(side=tk.TOP, fill=tk.BOTH, padx=20, pady=10)
 tk.Label(frame, text="Collision Sound:").grid(row=0, column=0)
 dflt_sound = tk.StringVar(value="MARIO")
 option_sound_list = ["MARIO", "GAMEOVER", "PACMAN", "SQUIDGAME", "TOKYO_DRIFT"]
-ttk.OptionMenu(frame, dflt_sound, "MARIO", *option_sound_list).grid(row=0, column=1, pady = 5)
+tk.OptionMenu(frame, dflt_sound, "MARIO", *option_sound_list).grid(row=0, column=1, pady = 5)
 
 tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady = 5)
 tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady = 5)
@@ -195,7 +191,7 @@ canvas.get_tk_widget().pack(side=tk.BOTTOM, expand=True, fill=tk.BOTH, padx=10, 
 canvas.draw()
 
 def on_closing():
-    global running
+    global running, ser, window
     if running:
         if not messagebox.askokcancel("Zamykanie", "Logowanie jest włączone. Zatrzymać i zamknąć?"):
             return
