@@ -208,7 +208,7 @@ void loop() {
   beepDistance(minDist, colFront);
   
   Serial.print(distFront);
-  Serial.print(" | ");
+  Serial.print(",");
 
   Serial.print(colFront);
 
