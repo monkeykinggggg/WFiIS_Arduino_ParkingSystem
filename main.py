@@ -11,6 +11,7 @@ import csv
 import random
 import sys
 import threading
+import numpy as np
 
 
 ser = None
@@ -32,12 +33,11 @@ reading_thread = None
 data_lock = threading.Lock()
 data_points = deque()
 window_seconds = 30
-
 last_collision = 0
 
 with open(LOG_FILE, "w", newline="") as f:
     writer = csv.writer(f)
-    writer.writerow(["timestamp", "rear_center", "rear_left", "rear_right", "collision"])
+    writer.writerow(["timestamp", "rear_left", "rear_center", "rear_right", "collision"])
 
 
 def reader_thread_func():
@@ -47,10 +47,10 @@ def reader_thread_func():
             if ser:
                 raw = ser.readline().decode("utf-8").strip()
             else:
-                rear_center = random.randint(5, 40)
-                rear_left = random.randint(5, 40)
-                rear_right = random.randint(5, 40)
-                collision = 1 if random.random() < 0.05 else 0
+                rear_center = random.randint(80, 100)
+                rear_left = random.randint(30, 45)
+                rear_right = random.randint(0, 30)
+                collision = 0 
                 raw = f"{rear_center},{rear_left},{rear_right},{collision}"
                 time.sleep(0.1)
 
@@ -58,25 +58,23 @@ def reader_thread_func():
                 continue
 
             parts = raw.split(",")
-            # print("Odebrano:", parts)
             if len(parts) < 4:
                 continue
 
-            rear_center, rear_left, rear_right, collision = parts
+            rear_left, rear_center, rear_right, collision = parts
             rear_center = int(rear_center); rear_left = int(rear_left); rear_right = int(rear_right)
             collision = int(collision)
             timestamp = datetime.now()
-            print(f"read: {parts}")
 
             with data_lock:
-                data_points.append((timestamp, rear_center, rear_left, rear_right, collision))
+                data_points.append((timestamp, rear_left, rear_center,  rear_right, collision))
                 while data_points and (timestamp - data_points[0][0]).total_seconds() > window_seconds:
                     data_points.popleft()
                 last_collision = collision
                 
                 with open(LOG_FILE, "a", newline="") as f:
                     writer = csv.writer(f)
-                    writer.writerow([timestamp.strftime("%H:%M:%S"), rear_center, rear_left, rear_right, collision])
+                    writer.writerow([f'{timestamp.strftime("%H:%M:%S"):6}', f'{rear_left:10}', f'{rear_center:10}', f'{rear_right:10}', f'{collision:10}'])
 
         except Exception as e:
             print("Błąd w wątku czytającym:", e, file=sys.stderr)
@@ -90,7 +88,7 @@ def start_reading():
     running = True
     reading_thread = threading.Thread(target=reader_thread_func, daemon=True)
     reading_thread.start()
-    root.after(100, update_gui)
+    window.after(100, update_gui)
 
 
 def stop_reading():
@@ -99,7 +97,7 @@ def stop_reading():
 
 
 def send_to_arduino():
-    mode = mode_var.get()
+    mode = dflt_sound.get()
     msg = f"{mode}\n"
     try:
         if ser:
@@ -112,88 +110,89 @@ def send_to_arduino():
 def update_gui():
     with data_lock:
         if not data_points:
-            root.after(100, update_gui)
+            window.after(100, update_gui)
             return
 
         snapshot = list(data_points)
 
-    times = [t for t, *_ in snapshot] # time and everything else
-    centers = [c for _, c, _, _, _ in snapshot]
-    lefts = [l for _, _, l, _, _  in snapshot]
+    times = [t for t, *_ in snapshot]
+    centers = [c for _, _, c, _, _ in snapshot]
+    lefts = [l for _, l, _, _, _  in snapshot]
     rights = [r for _, _, _, r, _ in snapshot]
 
     ax_plot.clear()
     ax_car.clear()
 
-    ax_plot.plot(times, lefts, label="Rear Left", linestyle='-', marker=None)
-    ax_plot.plot(times, centers, label="Rear Center", linestyle='-', marker=None)
-    ax_plot.plot(times, rights, label="Rear Right", linestyle='-', marker=None)
-    ax_plot.set_ylim(0, 60)
-    ax_plot.set_ylabel("Distance (cm)")
-    ax_plot.set_xlabel("Time for last {} s".format(window_seconds))
-    ax_plot.set_title("Rear Sensor Distance (Real-Time)")
-    ax_plot.legend(loc="upper right")
+    ax_plot.grid(True)
+    ax_plot.plot(times, lefts, label="Rear Left", linewidth=1)
+    ax_plot.plot(times, centers, label="Rear Center", linewidth=1)
+    ax_plot.plot(times, rights, label="Rear Right", linewidth=1)
     ax_plot.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
     ax_plot.set_xlim(datetime.now() - pd.Timedelta(seconds=window_seconds), datetime.now())
-    plt.setp(ax_plot.xaxis.get_majorticklabels(), rotation=20, ha="left", fontsize=8)
+    ax_plot.tick_params(axis='x', labelsize=5, rotation=60)
+    ax_plot.tick_params(axis='y', labelsize=8)
+    ax_plot.set_ylim(0, 60)
+    ax_plot.set_ylabel("Distance (cm)", fontsize=8)
+    ax_plot.set_xlabel("Time (last {} s)".format(window_seconds), fontsize=8)
+    ax_plot.set_title("Rear Sensor Distance (Real-Time)", fontsize=8)
+    ax_plot.legend(loc="upper right",  fontsize=8)
+    
 
-# 0, 0 is at the start of the car rear
     ax_car.set_xlim(-100, 100)
     ax_car.set_ylim(-160, 160)
     ax_car.set_aspect("equal")
-    ax_car.axis("off")
-    ax_car.set_title("Car Sensors")
+    ax_car.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    ax_car.set_title("Car Sensors Derection", fontsize=8)
 
     car = plt.Rectangle((-30, -60), 60, 120, fill=True, color="gray", alpha=0.4)
     ax_car.add_patch(car)
 
-    front_color = "red" if last_collision else "darkred"
-    front_markersize = 10 if last_collision else 6
-    ax_car.plot([-30, 30], [60, 60], 'o', color=front_color, markersize=front_markersize)
-
+    bumper_color = "red" if last_collision else "darkred"
+    bumper_width = 5 if last_collision else 2
+    ax_car.plot([-30, 30], [-60, -60], color=bumper_color, linewidth=bumper_width)
     ax_car.plot([-30, 0, 30], [-60, -60, -60], 'o', color="blue")
 
-    # lines
     if snapshot:
-        _, last_center, last_left, last_right, _ = snapshot[-1]
-        print(f"rysunek: {snapshot[-1]}")
+        _, last_left, last_center,  last_right, _ = snapshot[-1]
         ax_car.plot([-30, -30], [-60, -60 - last_left], 'b--')
         ax_car.plot([0, 0], [-60, -60 - last_center], 'b--')
         ax_car.plot([30, 30], [-60, -60 - last_right], 'b--')
 
-        avg_rear = (last_left + last_center + last_right) // 3
-        ax_car.text(0, -80 - avg_rear, f"{avg_rear} cm", color='blue', ha='center')
+        ax_car.text(-30, -80 - last_left, f"{last_left}", color='blue', fontsize=8, ha='right')
+        ax_car.text(0, -80 - last_center, f"{last_center}", color='blue', fontsize=8, ha='center')
+        ax_car.text(30, -80 - last_right, f"{last_right}", color='blue', fontsize=8, ha='left')
 
     rear_text = "REAR COLLISION!" if last_collision else ""
     if last_collision:
         ax_car.text(0, 90, rear_text, color='red', ha='center', fontsize=12, fontweight='bold')
 
-    canvas.draw_idle()
+    canvas.draw()
 
     if running:
-        root.after(100, update_gui)
+        window.after(100, update_gui)
 
+#initializing main window
+window = tk.Tk()
+window.title("Arduino Parking Assistant")
+window.maxsize(1200, 1000)
 
-root = tk.Tk()
-root.title("Arduino Parking Assistant")
+frame = tk.Frame(window)
+frame.pack(side=tk.TOP, fill=tk.BOTH, padx=20, pady=10)
 
-frame = tk.Frame(root)
-frame.pack(side=tk.TOP, fill=tk.X, padx=6, pady=6)
+tk.Label(frame, text="Collision Sound:").grid(row=0, column=0)
+dflt_sound = tk.StringVar(value="MARIO")
+option_sound_list = ["MARIO", "GAMEOVER", "PACMAN", "SQUIDGAME", "TOKYO_DRIFT"]
+ttk.OptionMenu(frame, dflt_sound, "MARIO", *option_sound_list).grid(row=0, column=1, pady = 5)
 
-tk.Label(frame, text="Collision Sound:").grid(row=0, column=0, padx=4)
-mode_var = tk.StringVar(value="MARIO")
-ttk.OptionMenu(frame, mode_var, "MARIO", "MARIO", "GAMEOVER", "PACMAN", "SQUIDGAME", "TOKYO_DRIFT").grid(row=0, column=1)
+tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady = 5)
+tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady = 5)
+tk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4, pady = 5)
 
-ttk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=8)
-ttk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4)
-ttk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4)
-
-fig, (ax_plot, ax_car) = plt.subplots(1, 2, figsize=(9, 4))
-canvas = FigureCanvasTkAgg(fig, master=root)
-canvas_widget = canvas.get_tk_widget()
-canvas_widget.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-
-canvas.draw_idle()
+fig, (ax_plot, ax_car) = plt.subplots(1, 2, figsize=(8, 4))
+plt.tight_layout(pad=3.0)
+canvas = FigureCanvasTkAgg(fig, master=window)
+canvas.get_tk_widget().pack(side=tk.BOTTOM, expand=True, fill=tk.BOTH, padx=10, pady=10)
+canvas.draw()
 
 def on_closing():
     global running
@@ -206,9 +205,9 @@ def on_closing():
             ser.close()
     except Exception:
         pass
-    root.destroy()
+    window.destroy()
 
-root.protocol("WM_DELETE_WINDOW", on_closing)
+window.protocol("WM_DELETE_WINDOW", on_closing)
 
 start_reading()
-root.mainloop()
+window.mainloop()
