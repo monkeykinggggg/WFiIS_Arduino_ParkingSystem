@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
@@ -29,7 +28,6 @@ LOG_FILE = "parking_log.csv"
 with open(LOG_FILE, "w", newline="") as f:
     f.write("timestamp, rear_left, rear_center, rear_right, collision\n")
 
-running = False
 reading_thread = None
 data_lock = threading.Lock()
 data_points = deque()
@@ -38,8 +36,8 @@ last_collision = 0
 
 
 def reader_thread_func():
-    global running, data_points, last_collision, ser
-    while running:
+    global data_points, last_collision, ser
+    while True:
         try:
             if ser:
                 raw = ser.readline().decode("utf-8").strip()
@@ -78,18 +76,25 @@ def reader_thread_func():
 
 
 def start_reading():
-    global running, reading_thread
-    if running:
+    global reading_thread
+    if reading_thread is not None and reading_thread.is_alive():
         return
-    running = True
+    try:
+        if ser:
+            ser.write(b"START\n")
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
     reading_thread = threading.Thread(target=reader_thread_func, daemon=True)
     reading_thread.start()
     window.after(100, update_gui)
 
 
 def stop_reading():
-    global running
-    running = False
+    try:
+        if ser:
+            ser.write(b"STOP\n")
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
 
 
 def send_to_arduino():
@@ -106,8 +111,7 @@ def send_to_arduino():
 def update_gui():
     with data_lock:
         if not data_points:
-            window.after(100, update_gui)
-            return
+            pass
 
         snapshot = list(data_points)
 
@@ -164,8 +168,7 @@ def update_gui():
 
     canvas.draw()
 
-    if running:
-        window.after(100, update_gui)
+    window.after(100, update_gui)
 
 #initializing main window
 window = tk.Tk()
@@ -191,11 +194,7 @@ canvas.get_tk_widget().pack(side=tk.BOTTOM, expand=True, fill=tk.BOTH, padx=10, 
 canvas.draw()
 
 def on_closing():
-    global running, ser, window
-    if running:
-        if not messagebox.askokcancel("Zamykanie", "Logowanie jest włączone. Zatrzymać i zamknąć?"):
-            return
-    running = False
+    global ser, window
     try:
         if ser:
             ser.close()

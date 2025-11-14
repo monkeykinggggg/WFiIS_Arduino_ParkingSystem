@@ -134,6 +134,8 @@ int* melody = mario_melody;
 int* durations = mario_durations;
 int melodyLength = sizeof(mario_durations) / sizeof(mario_durations[0]);
 
+ bool streaming = true;
+
 long readUltrasonic(int trigPin, int echoPin) {
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
@@ -185,6 +187,40 @@ void beepDistance(long minDistance, bool latchPressed) {
     }
 }
 
+void handleSerial() {
+    if (Serial.available() > 0) {
+        String cmd = Serial.readStringUntil('\n');
+        cmd.trim();
+        cmd.toUpperCase();
+
+        if (cmd == "START") {
+            streaming = true;
+        } else if (cmd == "STOP") {
+            streaming = false;
+        } else if (cmd == "MARIO") {
+            melody = mario_melody;
+            durations = mario_durations;
+            melodyLength = sizeof(mario_durations) / sizeof(mario_durations[0]);
+        } else if (cmd == "GAMEOVER") {
+            melody = gameover_melody;
+            durations = gameover_durations;
+            melodyLength = sizeof(gameover_durations) / sizeof(gameover_durations[0]);
+        } else if (cmd == "PACMAN") {
+            melody = pacman_melody;
+            durations = pacman_durations;
+            melodyLength = sizeof(pacman_durations) / sizeof(pacman_durations[0]);
+        } else if (cmd == "SQUIDGAME") {
+            melody = squidgame_melody;
+            durations = squidgame_durations;
+            melodyLength = sizeof(squidgame_durations) / sizeof(squidgame_durations[0]);
+        } else if (cmd == "TOKYO_DRIFT") {
+            melody = tokyo_drift_melody;
+            durations = tokyo_drift_durations;
+            melodyLength = sizeof(tokyo_drift_durations) / sizeof(tokyo_drift_durations[0]);
+        }
+    }
+}
+
 void setup() {
     Serial.begin(9600);
 
@@ -203,6 +239,7 @@ void setup() {
 }
 
 void loop() {
+    handleSerial();
     long distLeft = readUltrasonic(TRIG_LEFT, ECHO_LEFT);
     long distCenter = readUltrasonic(TRIG_CENTER, ECHO_CENTER);
     long distRight = readUltrasonic(TRIG_RIGHT, ECHO_RIGHT);
@@ -212,6 +249,8 @@ void loop() {
     long minDist = min(distLeft, min(distCenter, distRight));
     beepDistance(minDist, colFront);
 
-    Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
+    if (streaming) {
+        Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
+    }
     delay(200); // ~5 samples per second
 }
