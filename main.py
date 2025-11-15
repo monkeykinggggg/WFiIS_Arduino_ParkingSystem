@@ -117,6 +117,60 @@ def send_to_arduino():
         print("Błąd wysyłania do Arduino:", e)
 
 
+def set_servo_angle():
+    try:
+        val = int(servo_angle_var.get())
+    except Exception:
+        return
+    if val < 0:
+        val = 0
+    if val > 180:
+        val = 180
+    cmd = f"SET_SERVO {val}\n"
+    try:
+        if ser:
+            ser.write(cmd.encode())
+        print("Wysłano:", cmd.strip())
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
+
+
+def set_setpoint():
+    try:
+        val = int(setpoint_var.get())
+    except Exception:
+        return
+    if val < 2:
+        val = 2
+    if val > 200:
+        val = 200
+    cmd = f"SETPOINT {val}\n"
+    try:
+        if ser:
+            ser.write(cmd.encode())
+        print("Wysłano:", cmd.strip())
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
+
+
+def control_on():
+    try:
+        if ser:
+            ser.write(b"CONTROL ON\n")
+        print("Wysłano:", "CONTROL ON")
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
+
+
+def control_off():
+    try:
+        if ser:
+            ser.write(b"CONTROL OFF\n")
+        print("Wysłano:", "CONTROL OFF")
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
+
+
 def update_gui():
     with data_lock:
         if not data_points:
@@ -196,6 +250,19 @@ tk.Button(frame, text="Measure", command=measure_once).grid(row=0, column=3, pad
 tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady = 5)
 tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady = 5)
 tk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4, pady = 5)
+
+servo_angle_var = tk.StringVar(value="90")
+setpoint_var = tk.StringVar(value="30")
+
+tk.Label(frame, text="Servo angle (0-180):").grid(row=1, column=0)
+tk.Entry(frame, textvariable=servo_angle_var, width=6).grid(row=1, column=1)
+tk.Button(frame, text="Set Servo", command=set_servo_angle).grid(row=1, column=2, padx=4, pady=5)
+
+tk.Label(frame, text="Setpoint (cm):").grid(row=2, column=0)
+tk.Entry(frame, textvariable=setpoint_var, width=6).grid(row=2, column=1)
+tk.Button(frame, text="Set Setpoint", command=set_setpoint).grid(row=2, column=2, padx=4, pady=5)
+tk.Button(frame, text="Control ON", command=control_on).grid(row=2, column=3, padx=4, pady=5)
+tk.Button(frame, text="Control OFF", command=control_off).grid(row=2, column=4, padx=4, pady=5)
 
 fig, (ax_plot, ax_car) = plt.subplots(1, 2, figsize=(8, 4))
 plt.tight_layout(pad=3.0)

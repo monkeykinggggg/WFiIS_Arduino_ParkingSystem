@@ -1,4 +1,5 @@
 #include "pitches.h"
+#include <Servo.h>
 #define TRIG_LEFT 13
 #define ECHO_LEFT 11
 
@@ -11,6 +12,7 @@
 #define LIMIT 2
 #define BUZZER 7
 
+#define SERVO_PIN 3
 
 int mario_melody[] = {
     NOTE_E5, NOTE_E5, REST, NOTE_E5, REST, NOTE_C5, NOTE_E5,
@@ -136,6 +138,14 @@ int melodyLength = sizeof(mario_durations) / sizeof(mario_durations[0]);
 
  bool streaming = true;
 
+Servo servoMotor;
+int servoAngle = 90;
+bool controlEnabled = false;
+int setpoint_cm = 30;
+float Kp = 1.0;
+int deadband_cm = 2;
+int max_step_deg = 8;
+
 long readUltrasonic(int trigPin, int echoPin) {
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
@@ -223,6 +233,32 @@ void handleSerial() {
             long distRight = readUltrasonic(TRIG_RIGHT, ECHO_RIGHT);
             bool colFront = digitalRead(LIMIT) == LOW;
             Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
+        } else if (cmd.startsWith("SET_SERVO")) {
+            String arg = cmd.substring(9);
+            arg.trim();
+            if (arg.length() > 0) {
+                int a = arg.toInt();
+                if (a < 0) a = 0; if (a > 180) a = 180;
+                servoAngle = a;
+                servoMotor.write(servoAngle);
+            }
+        } else if (cmd.startsWith("SETPOINT")) {
+            String arg = cmd.substring(8);
+            arg.trim();
+            if (arg.equals("OFF")) {
+                controlEnabled = false;
+            } else {
+                if (arg.length() > 0) {
+                    int sp = arg.toInt();
+                    if (sp < 2) sp = 2; if (sp > 200) sp = 200;
+                    setpoint_cm = sp;
+                    controlEnabled = true;
+                }
+            }
+        } else if (cmd == "CONTROL ON") {
+            controlEnabled = true;
+        } else if (cmd == "CONTROL OFF") {
+            controlEnabled = false;
         }
     }
 }
@@ -242,6 +278,9 @@ void setup() {
     pinMode(BUZZER, OUTPUT);
 
     //Serial.println("distance_left,distance_center,distance_right,collision");
+
+    servoMotor.attach(SERVO_PIN);
+    servoMotor.write(servoAngle);
 }
 
 void loop() {
@@ -254,6 +293,22 @@ void loop() {
 
     long minDist = min(distLeft, min(distCenter, distRight));
     beepDistance(minDist, colFront);
+
+    if (controlEnabled) {
+        long error = setpoint_cm - distCenter;
+        if (abs(error) > deadband_cm) {
+            float delta = Kp * (float)error;
+            if (delta > max_step_deg) delta = max_step_deg;
+            if (delta < -max_step_deg) delta = -max_step_deg;
+            int newAngle = servoAngle + (int)delta;
+            if (newAngle < 0) newAngle = 0;
+            if (newAngle > 180) newAngle = 180;
+            if (newAngle != servoAngle) {
+                servoAngle = newAngle;
+                servoMotor.write(servoAngle);
+            }
+        }
+    }
 
     if (streaming) {
         Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
