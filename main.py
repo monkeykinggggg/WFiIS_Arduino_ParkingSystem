@@ -97,6 +97,15 @@ def stop_reading():
         print("Błąd wysyłania do Arduino:", e)
 
 
+def measure_once():
+    try:
+        if ser:
+            ser.write(b"MEASURE\n")
+        print("Wysłano:", "MEASURE")
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
+
+
 def send_to_arduino():
     mode = dflt_sound.get()
     msg = f"{mode}\n"
@@ -183,6 +192,7 @@ dflt_sound = tk.StringVar(value="MARIO")            #automatically updates when 
 option_sound_list = ["MARIO", "GAMEOVER", "PACMAN", "SQUIDGAME", "TOKYO_DRIFT"]
 tk.OptionMenu(frame, dflt_sound, *option_sound_list).grid(row=0, column=1, pady = 5)
 
+tk.Button(frame, text="Measure", command=measure_once).grid(row=0, column=3, padx=4, pady = 5)
 tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady = 5)
 tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady = 5)
 tk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4, pady = 5)

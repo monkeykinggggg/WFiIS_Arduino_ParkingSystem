@@ -217,6 +217,12 @@ void handleSerial() {
             melody = tokyo_drift_melody;
             durations = tokyo_drift_durations;
             melodyLength = sizeof(tokyo_drift_durations) / sizeof(tokyo_drift_durations[0]);
+        } else if (cmd == "MEASURE") {
+            long distLeft = readUltrasonic(TRIG_LEFT, ECHO_LEFT);
+            long distCenter = readUltrasonic(TRIG_CENTER, ECHO_CENTER);
+            long distRight = readUltrasonic(TRIG_RIGHT, ECHO_RIGHT);
+            bool colFront = digitalRead(LIMIT) == LOW;
+            Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
         }
     }
 }
