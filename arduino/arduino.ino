@@ -222,7 +222,7 @@ void handleSerial() {
             long distCenter = readUltrasonic(TRIG_CENTER, ECHO_CENTER);
             long distRight = readUltrasonic(TRIG_RIGHT, ECHO_RIGHT);
             bool colFront = digitalRead(LIMIT) == LOW;
-            Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
+            Serial.println(String(distLeft) + "," + String(distCenter) + "," + String(distRight) + "," + String(colFront));
         }
     }
 }
@@ -256,7 +256,7 @@ void loop() {
     beepDistance(minDist, colFront);
 
     if (streaming) {
-        Serial.println(String(distCenter) + "," + String(distLeft) + "," + String(distRight) + "," + String(colFront));
+        Serial.println(String(distLeft) + "," + String(distCenter) + "," + String(distRight) + "," + String(colFront));
     }
     delay(200); // ~5 samples per second
 }
