@@ -119,12 +119,32 @@ def send_to_arduino():
         print("Błąd wysyłania do Arduino:", e)
 
 
+def goto_distance():
+    try:
+        value = int(goto_var.get())
+    except Exception:
+        value = None
+    if value is None:
+        return
+    if value < 5:
+        value = 5
+    if value > 200:
+        value = 200
+    msg = f"GOTO {value}\n"
+    try:
+        if ser:
+            ser.write(msg.encode())
+        print("Wysłano:", msg.strip())
+    except Exception as e:
+        print("Błąd wysyłania do Arduino:", e)
+
+
 def update_gui():
     with data_lock:
         if not data_points:
             pass
 
-        snapshot = list(data_points)
+    snapshot = list(data_points)
 
     times = [t for t, *_ in snapshot]
     centers = [c for _, _, c, _, _ in snapshot]
@@ -197,6 +217,11 @@ tk.Button(frame, text="Measure", command=measure_once).grid(row=0, column=3, pad
 tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady=5)
 tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady=5)
 tk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4, pady=5)
+
+goto_var = tk.StringVar(value="30")
+tk.Label(frame, text="GoTo distance (cm):").grid(row=1, column=0)
+tk.Entry(frame, textvariable=goto_var, width=8).grid(row=1, column=1, pady=5)
+tk.Button(frame, text="GoTo", command=goto_distance).grid(row=1, column=2, padx=4, pady=5)
 
 fig, (ax_plot, ax_car) = plt.subplots(1, 2, figsize=(8, 4))
 plt.tight_layout(pad=3.0)
