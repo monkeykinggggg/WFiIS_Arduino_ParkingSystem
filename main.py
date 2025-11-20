@@ -13,14 +13,14 @@ import threading
 import serial
 
 ser = None
-SERIAL_PORT = "/dev/cu.usbmodem11101"  # COM5
+SERIAL_PORT = "COM5"  # /dev/cu.usbmodem11101
 BAUD_RATE = 9600
 
 try:
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
     time.sleep(2)
 except Exception as e:
-    print("Nie udało się otworzyć portu szeregowego:", e)  
+    print("Nie udało się otworzyć portu szeregowego:", e)
     ser = None
 
 LOG_FILE = "parking_log.csv"
@@ -45,7 +45,7 @@ def reader_thread_func():
                 rear_left = random.randint(30, 45)
                 rear_center = random.randint(80, 100)
                 rear_right = random.randint(0, 30)
-                collision = 0 
+                collision = 0
                 raw = f"{rear_center},{rear_left},{rear_right},{collision}"
                 time.sleep(0.1)
 
@@ -57,18 +57,21 @@ def reader_thread_func():
                 continue
 
             rear_left, rear_center, rear_right, collision = parts
-            rear_center = int(rear_center); rear_left = int(rear_left); rear_right = int(rear_right)
+            rear_center = int(rear_center)
+            rear_left = int(rear_left)
+            rear_right = int(rear_right)
             collision = int(collision)
             timestamp = datetime.now()
 
             with data_lock:
-                data_points.append((timestamp, rear_left, rear_center,  rear_right, collision))
+                data_points.append((timestamp, rear_left, rear_center, rear_right, collision))
                 while data_points and (timestamp - data_points[0][0]).total_seconds() > window_seconds:
                     data_points.popleft()
                 last_collision = collision
-                
+
                 with open(LOG_FILE, "a", newline="") as f:
-                    f.write(f'{timestamp.strftime("%H:%M:%S"):6}, {rear_left:10}, {rear_center:10}, {rear_right:10}, {collision:10}\n')
+                    f.write(
+                        f'{timestamp.strftime("%H:%M:%S"):6}, {rear_left:10}, {rear_center:10}, {rear_right:10}, {collision:10}\n')
 
         except Exception as e:
             print("Błąd w wątku czytającym:", e, file=sys.stderr)
@@ -77,16 +80,15 @@ def reader_thread_func():
 
 def start_reading():
     global reading_thread
-    if reading_thread is not None and reading_thread.is_alive():
-        return
     try:
         if ser:
             ser.write(b"START\n")
     except Exception as e:
         print("Błąd wysyłania do Arduino:", e)
-    reading_thread = threading.Thread(target=reader_thread_func, daemon=True)
-    reading_thread.start()
-    window.after(100, update_gui)
+    if reading_thread is None:
+        reading_thread = threading.Thread(target=reader_thread_func, daemon=True)
+        reading_thread.start()
+        window.after(100, update_gui)
 
 
 def stop_reading():
@@ -126,7 +128,7 @@ def update_gui():
 
     times = [t for t, *_ in snapshot]
     centers = [c for _, _, c, _, _ in snapshot]
-    lefts = [l for _, l, _, _, _  in snapshot]
+    lefts = [l for _, l, _, _, _ in snapshot]
     rights = [r for _, _, _, r, _ in snapshot]
 
     ax_plot.clear()
@@ -144,8 +146,7 @@ def update_gui():
     ax_plot.set_ylabel("Distance (cm)", fontsize=8)
     ax_plot.set_xlabel("Time (last {} s)".format(window_seconds), fontsize=8)
     ax_plot.set_title("Rear Sensor Distance (Real-Time)", fontsize=8)
-    ax_plot.legend(loc="upper right",  fontsize=8)
-    
+    ax_plot.legend(loc="upper right", fontsize=8)
 
     ax_car.set_xlim(-100, 100)
     ax_car.set_ylim(-160, 160)
@@ -162,7 +163,7 @@ def update_gui():
     ax_car.plot([-30, 0, 30], [-60, -60, -60], 'o', color="blue")
 
     if snapshot:
-        _, last_left, last_center,  last_right, _ = snapshot[-1]
+        _, last_left, last_center, last_right, _ = snapshot[-1]
         ax_car.plot([-30, -30], [-60, -60 - last_left], 'b--')
         ax_car.plot([0, 0], [-60, -60 - last_center], 'b--')
         ax_car.plot([30, 30], [-60, -60 - last_right], 'b--')
@@ -179,7 +180,7 @@ def update_gui():
 
     window.after(100, update_gui)
 
-#initializing main window
+# initializing main window
 window = tk.Tk()
 window.title("Arduino Parking Assistant")
 window.maxsize(1200, 1000)
@@ -188,14 +189,14 @@ frame = tk.Frame(window)
 frame.pack(side=tk.TOP, fill=tk.BOTH, padx=20, pady=10)
 
 tk.Label(frame, text="Collision Sound:").grid(row=0, column=0)
-dflt_sound = tk.StringVar(value="MARIO")            #automatically updates when the OptionMenu selection changes
+dflt_sound = tk.StringVar(value="MARIO")  # automatically updates when the OptionMenu selection changes
 option_sound_list = ["MARIO", "GAMEOVER", "PACMAN", "SQUIDGAME", "TOKYO_DRIFT"]
-tk.OptionMenu(frame, dflt_sound, *option_sound_list).grid(row=0, column=1, pady = 5)
+tk.OptionMenu(frame, dflt_sound, *option_sound_list).grid(row=0, column=1, pady=5)
 
-tk.Button(frame, text="Measure", command=measure_once).grid(row=0, column=3, padx=4, pady = 5)
-tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady = 5)
-tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady = 5)
-tk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4, pady = 5)
+tk.Button(frame, text="Measure", command=measure_once).grid(row=0, column=3, padx=4, pady=5)
+tk.Button(frame, text="Send", command=send_to_arduino).grid(row=0, column=4, padx=4, pady=5)
+tk.Button(frame, text="Start", command=start_reading).grid(row=0, column=5, padx=4, pady=5)
+tk.Button(frame, text="Stop", command=stop_reading).grid(row=0, column=6, padx=4, pady=5)
 
 fig, (ax_plot, ax_car) = plt.subplots(1, 2, figsize=(8, 4))
 plt.tight_layout(pad=3.0)

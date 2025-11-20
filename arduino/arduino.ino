@@ -3,10 +3,10 @@
 #define ECHO_LEFT 11
 
 #define TRIG_CENTER 6
-#define ECHO_CENTER 10
+#define ECHO_CENTER 9
 
 #define TRIG_RIGHT 5
-#define ECHO_RIGHT 9
+#define ECHO_RIGHT 10
 
 #define LIMIT 2
 #define BUZZER 7
@@ -149,6 +149,10 @@ long readUltrasonic(int trigPin, int echoPin) {
 }
 
 void beepDistance(long minDistance, bool latchPressed) {
+  if (!streaming) {
+    noTone(BUZZER);
+    return;
+  }
     if (minDistance < 5) {
         if (latchPressed) {
             for (int note = 0; note < melodyLength; note++) {
