@@ -1,6 +1,7 @@
 import tkinter as tk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.patches import Polygon
 import matplotlib.dates as mdates
 
 from collections import deque
@@ -162,15 +163,30 @@ def update_gui():
     ax_car.plot([-30, 30], [-60, -60], color=bumper_color, linewidth=bumper_width)
     ax_car.plot([-30, 0, 30], [-60, -60, -60], 'o', color="blue")
 
+    def draw_sensor_cone(origin, heading, distance, text_align):
+        ox, oy = origin
+        hx, hy = heading
+        length = (hx ** 2 + hy ** 2) ** 0.5 or 1
+        hx /= length
+        hy /= length
+        tip = (ox, oy)
+        base_cx = ox + hx * distance
+        base_cy = oy + hy * distance
+        px, py = -hy, hx
+        base_half_width = 20
+        base_left = (base_cx + px * base_half_width, base_cy + py * base_half_width)
+        base_right = (base_cx - px * base_half_width, base_cy - py * base_half_width)
+        cone = Polygon([tip, base_left, base_right], closed=True, color='blue', alpha=0.25, edgecolor='blue', linewidth=1)
+        ax_car.add_patch(cone)
+        text_x = base_cx + hx * 5
+        text_y = base_cy + hy * 5
+        ax_car.text(text_x, text_y, f"{distance}", color='blue', fontsize=8, ha=text_align, va='center')
+
     if snapshot:
         _, last_left, last_center, last_right, _ = snapshot[-1]
-        ax_car.plot([-30, -30], [-60, -60 - last_left], 'b--')
-        ax_car.plot([0, 0], [-60, -60 - last_center], 'b--')
-        ax_car.plot([30, 30], [-60, -60 - last_right], 'b--')
-
-        ax_car.text(-30, -80 - last_left, f"{last_left}", color='blue', fontsize=8, ha='right')
-        ax_car.text(0, -80 - last_center, f"{last_center}", color='blue', fontsize=8, ha='center')
-        ax_car.text(30, -80 - last_right, f"{last_right}", color='blue', fontsize=8, ha='left')
+        draw_sensor_cone((-30, -60), (-0.6, -1), last_left, 'right')
+        draw_sensor_cone((0, -60), (0, -1), last_center, 'center')
+        draw_sensor_cone((30, -60), (0.6, -1), last_right, 'left')
 
     rear_text = "REAR COLLISION!" if last_collision else ""
     if last_collision:
